@@ -5,6 +5,7 @@ const App = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [mouseStart, setMouseStart] = useState({ x: 0, y: 0 });
   const [isShiftPressed, setIsShiftPressed] = useState(false);
+  const [selectionBox, setSelectionBox] = useState(null);
   const containerRef = useRef(null);
   const buttonRefs = useRef([]);
 
@@ -34,10 +35,18 @@ const App = () => {
     if (isDragging) {
       const handleMouseMove = (event) => {
         const { clientX, clientY } = event;
-        const x1 = Math.min(mouseStart.x, clientX);
-        const y1 = Math.min(mouseStart.y, clientY);
-        const x2 = Math.max(mouseStart.x, clientX);
-        const y2 = Math.max(mouseStart.y, clientY);
+        const containerRect = containerRef.current.getBoundingClientRect();
+        const x1 = Math.min(mouseStart.x, clientX - containerRect.left);
+        const y1 = Math.min(mouseStart.y, clientY - containerRect.top);
+        const x2 = Math.max(mouseStart.x, clientX - containerRect.left);
+        const y2 = Math.max(mouseStart.y, clientY - containerRect.top);
+
+        setSelectionBox({
+          left: x1,
+          top: y1,
+          width: x2 - x1,
+          height: y2 - y1,
+        });
 
         setSelectedButtons((prevSelectedButtons) =>
           prevSelectedButtons.map((selected, index) => {
@@ -45,10 +54,10 @@ const App = () => {
             if (!button) return selected;
             const bounds = button.getBoundingClientRect();
             const inBounds =
-              bounds.left >= x1 &&
-              bounds.right <= x2 &&
-              bounds.top >= y1 &&
-              bounds.bottom <= y2;
+              bounds.left >= containerRect.left + x1 &&
+              bounds.right <= containerRect.left + x2 &&
+              bounds.top >= containerRect.top + y1 &&
+              bounds.bottom <= containerRect.top + y2;
 
             return inBounds ? (isShiftPressed ? 0 : 1) : selected;
           })
@@ -57,6 +66,7 @@ const App = () => {
 
       const handleMouseUp = () => {
         setIsDragging(false);
+        setSelectionBox(null);
         document.removeEventListener("mousemove", handleMouseMove);
         document.removeEventListener("mouseup", handleMouseUp);
       };
@@ -73,7 +83,11 @@ const App = () => {
 
   const handleMouseDown = (event) => {
     const { clientX, clientY } = event;
-    setMouseStart({ x: clientX, y: clientY });
+    const containerRect = containerRef.current.getBoundingClientRect();
+    setMouseStart({
+      x: clientX - containerRect.left,
+      y: clientY - containerRect.top,
+    });
     setIsDragging(true);
   };
 
@@ -106,7 +120,7 @@ const App = () => {
           <div className="flex flex-col gap-2">
             <div className="flex gap-[10.2px] w-[950px] pl-2.5">{numbers}</div>
             <div
-              className="flex bg-gray-700 p-2 gap-4 rounded-xl"
+              className="flex bg-gray-700 p-2 gap-4 rounded-xl relative"
               ref={containerRef}
             >
               <div className="flex flex-wrap gap-[10px] justify-center w-[950px]">
@@ -122,6 +136,17 @@ const App = () => {
                     onClick={() => handleButtonClick(index)}
                   ></button>
                 ))}
+                {selectionBox && (
+                  <div
+                    className="absolute bg-black/40 border-2 border-dotted opacity-50"
+                    style={{
+                      left: `${selectionBox.left}px`,
+                      top: `${selectionBox.top}px`,
+                      width: `${selectionBox.width}px`,
+                      height: `${selectionBox.height}px`,
+                    }}
+                  ></div>
+                )}
               </div>
             </div>
           </div>
